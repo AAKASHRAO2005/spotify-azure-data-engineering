@@ -1,0 +1,34 @@
+{
+    "name": "LS_AzureSqlDatabase",
+    "type": "Microsoft.DataFactory/factories/linkedservices",
+    "properties": {
+        "description": "Linked service to Azure SQL Database hosting Spotify transactional tables.",
+        "annotations": [],
+        "type": "AzureSqlDatabase",
+        "typeProperties": {
+            "connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=@{linkedService().ServerName}.database.windows.net;Initial Catalog=@{linkedService().DatabaseName};User ID=@{linkedService().UserName};",
+            "password": {
+                "type": "AzureKeyVaultSecret",
+                "store": {
+                    "referenceName": "LS_AzureKeyVault",
+                    "type": "LinkedServiceReference"
+                },
+                "secretName": "AzureSqlPassword"
+            }
+        },
+        "parameters": {
+            "ServerName": {
+                "type": "string",
+                "defaultValue": "sql-spotify-srv"
+            },
+            "DatabaseName": {
+                "type": "string",
+                "defaultValue": "spotifysqldb"
+            },
+            "UserName": {
+                "type": "string",
+                "defaultValue": "sqladmin"
+            }
+        }
+    }
+}

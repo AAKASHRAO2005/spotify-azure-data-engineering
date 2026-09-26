@@ -1,0 +1,25 @@
+resources:
+  jobs:
+    spotify_end_to_end_job:
+      name: "[${bundle.target}] Spotify End-to-End Orchestration Job"
+      tasks:
+        - task_key: silver_streaming_ingestion
+          notebook_task:
+            notebook_path: ../src/silver/silver_dimensions.py
+            base_parameters:
+              catalog_name: ${var.catalog_name}
+          new_cluster:
+            spark_version: 14.3.x-scala2.12
+            node_type_id: Standard_DS3_v2
+            num_workers: 1
+
+        - task_key: gold_dlt_pipeline_run
+          depends_on:
+            - task_key: silver_streaming_ingestion
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.spotify_gold_dlt_pipeline.id}
+
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: UTC
+        pause_status: PAUSED

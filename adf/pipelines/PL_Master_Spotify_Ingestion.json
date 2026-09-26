@@ -1,0 +1,209 @@
+{
+    "name": "PL_Master_Spotify_Ingestion",
+    "properties": {
+        "description": "Master orchestration pipeline for incremental Spotify data ingestion from Azure SQL DB to ADLS Gen2 Bronze layer with CDC watermark tracking, backfilling support, and Logic App alerting.",
+        "activities": [
+            {
+                "name": "Lookup_Table_List",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "JsonSource",
+                        "storeSettings": {
+                            "type": "AzureBlobFSReadSettings",
+                            "recursive": false,
+                            "enablePartitionDiscovery": false
+                        },
+                        "formatSettings": {
+                            "type": "JsonReadSettings"
+                        }
+                    },
+                    "dataset": {
+                        "referenceName": "DS_ADLS_Config_JSON",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "fileName": "loop_input.json"
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach_Table",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "Lookup_Table_List",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('Lookup_Table_List').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": false,
+                    "batchCount": 5,
+                    "activities": [
+                        {
+                            "name": "Lookup_Watermark",
+                            "type": "Lookup",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 1,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "JsonSource",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSReadSettings",
+                                        "recursive": false,
+                                        "enablePartitionDiscovery": false
+                                    },
+                                    "formatSettings": {
+                                        "type": "JsonReadSettings"
+                                    }
+                                },
+                                "dataset": {
+                                    "referenceName": "DS_ADLS_Config_JSON",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "fileName": "cdc.json"
+                                    }
+                                },
+                                "firstRowOnly": true
+                            }
+                        },
+                        {
+                            "name": "Copy_Data_Incremental",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "Lookup_Watermark",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 2,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "AzureSqlSource",
+                                    "sqlReaderQuery": {
+                                        "value": "@if(pipeline().parameters.is_backfill, concat('SELECT * FROM ', item().schema, '.', item().table, ' WHERE ', item().cdc_col, ' >= ''', pipeline().parameters.backfill_from_date, ''''), concat('SELECT * FROM ', item().schema, '.', item().table, ' WHERE ', item().cdc_col, ' > ''', activity('Lookup_Watermark').output.firstRow.cdc, ''''))",
+                                        "type": "Expression"
+                                    },
+                                    "queryTimeout": "02:00:00",
+                                    "partitionOption": "None"
+                                },
+                                "sink": {
+                                    "type": "ParquetSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings"
+                                    },
+                                    "formatSettings": {
+                                        "type": "ParquetWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "DS_AzureSql_Spotify",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "tableName": "@item().table",
+                                        "schemaName": "@item().schema"
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "DS_ADLS_Bronze_Parquet",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "directory": "@concat('bronze/', item().table, '/', utcnow('yyyy-MM-dd'))",
+                                        "fileName": "@concat(item().table, '_', utcnow('yyyyMMdd_HHmmss'), '.parquet')"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Send_LogicApp_Failure_Alert",
+                            "type": "WebActivity",
+                            "dependsOn": [
+                                {
+                                    "activity": "Copy_Data_Incremental",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.00:10:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "method": "POST",
+                                "headers": {
+                                    "Content-Type": "application/json"
+                                },
+                                "url": "@pipeline().parameters.logic_app_webhook_url",
+                                "body": {
+                                    "PipelineName": "@pipeline().Pipeline",
+                                    "RunId": "@pipeline().RunId",
+                                    "TableName": "@item().table",
+                                    "ErrorMessage": "@activity('Copy_Data_Incremental').Error.message",
+                                    "Timestamp": "@utcnow()"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "is_backfill": {
+                "type": "bool",
+                "defaultValue": false
+            },
+            "backfill_from_date": {
+                "type": "string",
+                "defaultValue": "1900-01-01"
+            },
+            "logic_app_webhook_url": {
+                "type": "string",
+                "defaultValue": "https://prod-00.eastus.logic.azure.com:443/workflows/spotify-alert-hook"
+            }
+        },
+        "annotations": ["spotify", "azure_data_engineering", "medallion", "incremental_load"]
+    }
+}

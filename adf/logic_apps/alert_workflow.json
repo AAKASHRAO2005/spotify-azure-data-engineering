@@ -1,0 +1,69 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "type": "string",
+            "defaultValue": "logicapp-spotify-pipeline-alerts"
+        },
+        "recipientEmail": {
+            "type": "string",
+            "defaultValue": "dataengineer@example.com"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2019-05-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {},
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "PipelineName": { "type": "string" },
+                                        "RunId": { "type": "string" },
+                                        "TableName": { "type": "string" },
+                                        "ErrorMessage": { "type": "string" },
+                                        "Timestamp": { "type": "string" }
+                                    },
+                                    "required": ["PipelineName", "RunId", "ErrorMessage"]
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Send_an_email_alert": {
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/v2/Mail",
+                                "body": {
+                                    "To": "[parameters('recipientEmail')]",
+                                    "Subject": "[ALERT] Spotify Data Pipeline Failure - @{triggerBody()?['PipelineName']}",
+                                    "Body": "<h2 style='color:#e74c3c;'>Spotify Data Pipeline Ingestion Failed</h2><p><strong>Pipeline:</strong> @{triggerBody()?['PipelineName']}</p><p><strong>Run ID:</strong> @{triggerBody()?['RunId']}</p><p><strong>Table:</strong> @{triggerBody()?['TableName']}</p><p><strong>Timestamp:</strong> @{triggerBody()?['Timestamp']}</p><p><strong>Error Message:</strong></p><pre style='background:#f4f4f4;padding:10px;border-left:4px solid #e74c3c;'>@{triggerBody()?['ErrorMessage']}</pre>"
+                                }
+                            },
+                            "runAfter": {}
+                        }
+                    },
+                    "outputs": {}
+                }
+            }
+        }
+    ]
+}

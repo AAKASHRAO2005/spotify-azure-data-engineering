@@ -1,0 +1,30 @@
+{
+    "name": "DS_ADLS_Config_JSON",
+    "type": "Microsoft.DataFactory/factories/datasets",
+    "properties": {
+        "description": "ADLS Gen2 dataset for reading pipeline control JSON files like loop_input.json and cdc.json.",
+        "linkedServiceName": {
+            "referenceName": "LS_AzureDataLakeStorageGen2",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "fileName": {
+                "type": "string"
+            }
+        },
+        "annotations": [],
+        "type": "Json",
+        "typeProperties": {
+            "location": {
+                "type": "AzureBlobFSLocation",
+                "fileName": {
+                    "value": "@dataset().fileName",
+                    "type": "Expression"
+                },
+                "folderPath": "config",
+                "fileSystem": "bronze"
+            }
+        },
+        "schema": {}
+    }
+}

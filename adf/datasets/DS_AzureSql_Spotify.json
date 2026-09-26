@@ -1,0 +1,33 @@
+{
+    "name": "DS_AzureSql_Spotify",
+    "type": "Microsoft.DataFactory/factories/datasets",
+    "properties": {
+        "description": "Parameterized dataset for Azure SQL Database Spotify source tables.",
+        "linkedServiceName": {
+            "referenceName": "LS_AzureSqlDatabase",
+            "type": "LinkedServiceReference"
+        },
+        "parameters": {
+            "tableName": {
+                "type": "string"
+            },
+            "schemaName": {
+                "type": "string",
+                "defaultValue": "dbo"
+            }
+        },
+        "annotations": [],
+        "type": "AzureSqlTable",
+        "schema": [],
+        "typeProperties": {
+            "schema": {
+                "value": "@dataset().schemaName",
+                "type": "Expression"
+            },
+            "table": {
+                "value": "@dataset().tableName",
+                "type": "Expression"
+            }
+        }
+    }
+}

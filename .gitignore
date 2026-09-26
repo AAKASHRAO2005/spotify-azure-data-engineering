@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pytest_cache/
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Local pipeline simulation artifacts (ephemeral)
+local_simulation/spotify_source.db
+local_simulation/simulated_adls/
+
+# Databricks bundle local builds
+.databricks/
+databricks/.databricks/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

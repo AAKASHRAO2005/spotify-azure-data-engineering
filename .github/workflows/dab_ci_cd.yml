@@ -1,0 +1,50 @@
+name: Databricks Asset Bundle CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'databricks/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'databricks/**'
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate Databricks Bundle (Dev)
+        working-directory: ./databricks
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DEV }}
+        run: |
+          databricks bundle validate -t dev
+
+      - name: Deploy Databricks Bundle to Dev
+        if: github.event_name == 'pull_request'
+        working-directory: ./databricks
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_DEV }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_DEV }}
+        run: |
+          databricks bundle deploy -t dev
+
+      - name: Deploy Databricks Bundle to Production
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: ./databricks
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST_PROD }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN_PROD }}
+        run: |
+          databricks bundle deploy -t prod

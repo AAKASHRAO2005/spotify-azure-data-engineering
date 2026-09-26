@@ -1,0 +1,26 @@
+{
+    "name": "LS_AzureDataLakeStorageGen2",
+    "type": "Microsoft.DataFactory/factories/linkedservices",
+    "properties": {
+        "description": "Linked service to Azure Data Lake Storage Gen2 (Bronze, Silver, Gold containers).",
+        "annotations": [],
+        "type": "AzureBlobFS",
+        "typeProperties": {
+            "url": "https://@{linkedService().StorageAccountName}.dfs.core.windows.net",
+            "accountKey": {
+                "type": "AzureKeyVaultSecret",
+                "store": {
+                    "referenceName": "LS_AzureKeyVault",
+                    "type": "LinkedServiceReference"
+                },
+                "secretName": "StorageAccountKey"
+            }
+        },
+        "parameters": {
+            "StorageAccountName": {
+                "type": "string",
+                "defaultValue": "storageazureproject"
+            }
+        }
+    }
+}
