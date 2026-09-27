@@ -6,8 +6,6 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org/)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-Databricks%20Asset%20Bundles%20%7C%20GitHub%20Actions-2088FF?logo=githubactions)](https://github.com/)
 
-> **Comprehensive production-grade repository for the 7-hour masterclass tutorial:**  
-> [Spotify End-To-End Azure Data Engineering Project (From Beginner To Pro) by Ansh Lamba](https://youtu.be/vJM0wDrTRxI)
 
 ---
 
